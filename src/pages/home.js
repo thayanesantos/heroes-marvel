@@ -1,9 +1,30 @@
 import { useState, useEffect } from 'react';
-import api from '../service/api'
+import api from '../service/api';
 
+import { chunk } from 'lodash';
+import { Modal, Button, Container, Row } from 'react-bootstrap';
 import Card from '../components/card';
 
 const Home = () => {
+	const [listComicsSelected, setListComicsSelected] = useState([]);
+	const selectEventList = (comic) => {
+		let list = listComicsSelected
+		let indexComic = list.findIndex(item => item.id == comic.id)
+		if (indexComic != -1) {
+			list.splice(indexComic, 1)
+		} else {
+			list.push(comic)
+		} 
+		setListComicsSelected(list);
+		console.log(listComicsSelected)
+	}
+
+	const [modalShowDetails, setModalShowDetails] = useState(false);
+	const [comicSelected, setComicSelected] = useState(false);
+	const openModalDetails = (comic) => {
+		setComicSelected(comic)
+		setModalShowDetails(true)
+	}
 	const [comics, setComics] = useState(null);
 	const [filters, setFilters] = useState({
 		dataRange: null,
@@ -11,8 +32,6 @@ const Home = () => {
 		titleStartsWith: null,
 		characters: null
 	});
-
-
 	const loadComics = async () => {
 		let params = Object.entries(filters)
 			.filter(([key, value]) => value)
@@ -26,23 +45,46 @@ const Home = () => {
 			setComics(data.data);
 		}
 	}
-
 	const handlerChangeFilter = (event) => {
 		const { name, value } = event.target;
 		setFilters({ ...filters, [name]: value });
 	};
-
 	const handlerSearchEvent = (event) => {
 		event.preventDefault()
 		loadComics()
 	};
-
 	useEffect(() => {
 		loadComics()
 	}, []);
 
+	function ModalComicsDetails(props) {
+		if (!comicSelected) return null;
+
+		const { title, thumbnail, description } = comicSelected;
+		return (
+			<Modal
+				{...props}
+				size="lg"
+				aria-labelledby="contained-modal-title-vcenter"
+				centered
+			>
+				<Modal.Header>
+					<Modal.Title id="contained-modal-title-vcenter">
+						{title}
+					</Modal.Title>
+					<Button onClick={props.onHide}>Close</Button>
+				</Modal.Header>
+				<Modal.Body>
+					<h4>Centered Modal</h4>
+					<img src={`${thumbnail.path}.${thumbnail.extension}`} />
+					<p>{description}</p>
+				</Modal.Body>
+			</Modal>
+		);
+	}
 	return (
-		<div>
+		<Container>
+
 			<div>
 				<h1>Inputs:</h1>
 				<label htmlFor="dataRange">Data Range </label> <br />
@@ -63,15 +105,26 @@ const Home = () => {
 
 				<button onClick={handlerSearchEvent} >Pesquisar</button>
 			</div>
-			{
-				comics && comics.results.map((comic, index) =>
-					<Card data={comic} key={index} />
+
+			{comics && chunk(comics.results, 4).map(groupComics => {
+				return (
+					<Row>
+						{groupComics.map((comic, index) => 
+						<Card data={comic}
+						isComicSelected={listComicsSelected.findIndex(item => item.id == comic.id) != -1}
+						selectEventList={selectEventList} 
+						openModalDetails={openModalDetails} 
+						key={index} />)}
+					</Row>
 				)
 			}
-			<p>
-				Home page
-			</p>
-		</div>
+			)}
+
+			<ModalComicsDetails
+				show={modalShowDetails}
+				onHide={() => setModalShowDetails(false)}
+			/>
+		</Container>
 
 	)
 }
