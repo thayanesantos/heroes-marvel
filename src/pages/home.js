@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import api from '../service/api';
 
-import { chunk } from 'lodash';
-import { Modal, Button, Container, Row } from 'react-bootstrap';
+import { chunk, merge, omit } from 'lodash';
+import { Modal, Button, Container, Row, Pagination } from 'react-bootstrap';
 import Card from '../components/card';
 
 const Home = () => {
+	// Variants
+	const [pagination, setPagination] = useState({ offset: 0, limit: 20, pages: 0 })
+
 	const [listComicsSelected, setListComicsSelected] = useState([]);
 	const selectEventList = (comic) => {
-		let list = listComicsSelected
+		let list = [...listComicsSelected]
 		let indexComic = list.findIndex(item => item.id == comic.id)
 		if (indexComic != -1) {
 			list.splice(indexComic, 1)
 		} else {
 			list.push(comic)
-		} 
+		}
 		setListComicsSelected(list);
 		console.log(listComicsSelected)
 	}
@@ -33,14 +36,17 @@ const Home = () => {
 		characters: null
 	});
 	const loadComics = async () => {
-		let params = Object.entries(filters)
+		let dataParams = Object.entries(filters)
 			.filter(([key, value]) => value)
 			.reduce((acc, item) => {
 				let [key, value] = item
 				acc[key] = value
 				return acc
 			}, {})
+		let params = merge(dataParams, omit(pagination, "pages"))
 		const { data, status } = await api.get('comics', { params });
+		const pages = Math.floor(data.data.total / pagination.limit);
+		setPagination({ ...pagination, pages })
 		if (status == 200) {
 			setComics(data.data);
 		}
@@ -56,6 +62,8 @@ const Home = () => {
 	useEffect(() => {
 		loadComics()
 	}, []);
+
+	// Functions
 
 	function ModalComicsDetails(props) {
 		if (!comicSelected) return null;
@@ -82,6 +90,29 @@ const Home = () => {
 			</Modal>
 		);
 	}
+
+	function NextPageComics() {
+		let p = {...pagination}
+		p.offset = p.offset + 20
+		setPagination(p)
+		loadComics();
+	}
+	function PrevPageComics() {
+		let p = {...pagination}
+		p.offset = p.offset - 20
+		setPagination(p)
+		loadComics();
+	}
+
+	const items = [];
+	for (let number = 1; number <= pagination.pages; number++) {
+		items.push(
+			<Pagination.Item key={number} >
+				{number}
+			</Pagination.Item>,
+		);
+	}
+
 	return (
 		<Container>
 
@@ -109,12 +140,12 @@ const Home = () => {
 			{comics && chunk(comics.results, 4).map(groupComics => {
 				return (
 					<Row>
-						{groupComics.map((comic, index) => 
-						<Card data={comic}
-						isComicSelected={listComicsSelected.findIndex(item => item.id == comic.id) != -1}
-						selectEventList={selectEventList} 
-						openModalDetails={openModalDetails} 
-						key={index} />)}
+						{groupComics.map((comic, index) =>
+							<Card data={comic}
+								isComicSelected={listComicsSelected.findIndex(item => item.id == comic.id) != -1}
+								selectEventList={selectEventList}
+								openModalDetails={openModalDetails}
+								key={index} />)}
 					</Row>
 				)
 			}
@@ -124,6 +155,15 @@ const Home = () => {
 				show={modalShowDetails}
 				onHide={() => setModalShowDetails(false)}
 			/>
+
+			<Pagination>
+				<Pagination.First />
+				<Pagination.Prev onClick={PrevPageComics} />
+				{/* {items} */}
+				<Pagination.Next onClick={NextPageComics} />
+				<Pagination.Last />
+			</Pagination>
+
 		</Container>
 
 	)
